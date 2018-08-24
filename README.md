@@ -42,6 +42,8 @@ Materials used (head / controller side):
 
 #### Software & Programming
 
+| SIDE | BRANCH |
+| ------ | ------ |
 | CAR | [branch:car](./tree/car) |
 | CONTROLLER | [branch:head](./tree/head) |
 
