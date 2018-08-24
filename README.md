@@ -13,6 +13,7 @@ RC Car Controled by Arduino with FPV 3D Camera
 We are a small team of 3 student that make a school project
 The goal was to take a classic RC car, but control it with a steering wheel and pedals over radio signals. In addition, we paired the car with an FPV camera (normally designed for drones) and with his headset to view the video stream of the car.
 
+---
 ### Hardware
 
 ##### Materials used (car side)
@@ -31,6 +32,7 @@ The goal was to take a classic RC car, but control it with a steering wheel and 
 - x1 High Frequency Module (433 MHz)
 - x1 Gyroscope / Accelerometer 
 
+---
 ### Installing
 
 ##### IDE
@@ -47,12 +49,14 @@ The goal was to take a classic RC car, but control it with a steering wheel and 
 - SPI
 - Wire
 
+---
 ### Software & Programming
 
 ##### Side
 - [branch:car](https://github.com/Caceresenzo/RemoteRealCarSimulator/tree/car) (controller)
 - [branch:head](https://github.com/Caceresenzo/RemoteRealCarSimulator/tree/head)
 
+---
 ### Authors
 
 - **Caceres Enzo** ([@Caceresenzo](https://github.com/Caceresenzo/)) - Programming work with arduino
