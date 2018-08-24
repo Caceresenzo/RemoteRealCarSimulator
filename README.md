@@ -1,16 +1,20 @@
 # Remote "Read" Car "Simulator"
 
-## Project Presentation
+#### Project Presentation
+
 RC Car Controled by Arduino with FPV 3D Camera
+
 ![RC Car](https://i.imgur.com/fpKpMUs.jpg)
 
-## Story
+#### Story
+
 We are a small team of 3 student that make a school project
 The goal was to take a classic RC car, but control it with a steering wheel and pedals over radio signals. In addition, we paired the car with an FPV camera (normally designed for drones) and with his headset to view the video stream of the car.
 
 #### Hardware
 
-Materials used (car side): 
+##### Materials used (car side)
+
 - Arduino Leonardo
 - x1 Motor for direction control
 - x2 Motor for Camera axes (X, Y)
@@ -19,7 +23,8 @@ Materials used (car side):
 - x1 Motor sized 1/5
 - x2 12V Batteries 
 
-Materials used (head / controller side):
+##### Materials used (head / controller side)
+
 - Arduino Uno
 - x1 High Frequency Module (433 MHz)
 - x1 Gyroscope / Accelerometer 
@@ -42,10 +47,9 @@ Materials used (head / controller side):
 
 #### Software & Programming
 
-| SIDE | BRANCH |
-| ------ | ------ |
-| CAR | [branch:car](./tree/car) |
-| CONTROLLER | [branch:head](./tree/head) |
+##### Side
+- [branch:car](https://github.com/Caceresenzo/RemoteRealCarSimulator/tree/car) (controller)
+- [branch:head](https://github.com/Caceresenzo/RemoteRealCarSimulator/tree/head)
 
 #### Authors
 
