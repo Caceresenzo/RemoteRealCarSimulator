@@ -53,8 +53,8 @@ The goal was to take a classic RC car, but control it with a steering wheel and 
 ### Software & Programming
 
 ##### Side
-- [branch:car](https://github.com/Caceresenzo/RemoteRealCarSimulator/tree/car) (controller)
-- [branch:head](https://github.com/Caceresenzo/RemoteRealCarSimulator/tree/head)
+- [branch:car](https://github.com/Caceresenzo/RemoteRealCarSimulator/tree/car)
+- [branch:head](https://github.com/Caceresenzo/RemoteRealCarSimulator/tree/head) (controller)
 
 ---
 ### Authors
