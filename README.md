@@ -1,11 +1,13 @@
-# Remote "Read" Car "Simulator"
+# Remote "Real" Car "Simulator"
 
+---
 ### Project Presentation
 
 RC Car Controled by Arduino with FPV 3D Camera
 
 ![RC Car](https://i.imgur.com/fpKpMUs.jpg)
 
+---
 ### Story
 
 We are a small team of 3 student that make a school project
