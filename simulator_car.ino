@@ -381,7 +381,7 @@ void loop() {
 		Serial.println(F("[Arduino] [Thread] First loop called!"));
 
 		if (SERIAL_CLI_ENABLED) {
-			Serial.println(F("[Arduino][Debug] Command interface available!"));
+			Serial.println(F("[Arduino] [Debug] Command interface available!"));
 		}
 
 		environment->updateMotion();
