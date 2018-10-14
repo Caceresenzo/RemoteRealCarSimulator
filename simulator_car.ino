@@ -26,6 +26,10 @@
 
 #define LED_PIN 13
 
+#define PROTOCOL_CAMERA_ID  1
+#define PROTOCOL_ROTATION_ID  2
+#define PROTOCOL_MOVING_ID  3
+
 int16_t ax, ay, az;
 int16_t gx, gy, gz;
 int16_t mx, my, mz;
@@ -258,65 +262,37 @@ class RadioNetworking {
 
 					bool success = true;
 
-					char protocol = buffer[0];
-					char* request = (char*) buffer;
+					byte protocol = buffer[0];
+					byte* request = (byte*) buffer;
 
-					if (protocol == 'c') { // CAMERA
-						STRING1 = 0x01; // x value
-						STRING2 = 0x01; // y value
-
-						for (int i = 0; i < 4; i++) {
-							char xCharAt = request[3 + i];
-							if (xCharAt != '_') {
-								STRING1 += String(xCharAt);
-							}
-							char yCharAt = request[9 + i];
-							if (yCharAt != '_') {
-								STRING2 += String(yCharAt);
-							}
-						}
+					if (protocol == PROTOCOL_CAMERA_ID) { /* Camera Update */
+						byte x = buffer[1], y = buffer[2];
 
 						Serial.print(F("[RadioNetworking] [Server] [Protocol: Camera] New value: x="));
-						Serial.print(STRING1.substring(1));
+						Serial.print(x);
 						Serial.print(F(", y="));
-						Serial.println(STRING2.substring(1));
+						Serial.println(y);
 
-						int xPosition = cameraServo->processRotationValue((word) STRING1.substring(1).toInt(), 20, 120);
-						int yPosition = cameraServo->processRotationValue((word) STRING2.substring(1).toInt(), 80, 120);
+						int xPosition = cameraServo->processRotationValue(x, 20, 120);
+						int yPosition = cameraServo->processRotationValue(y, 80, 120);
 						cameraServo->move(xPosition, yPosition);
-					} else if (protocol == 'r') { // ROTATION
-						STRING1 = 0x01; // angle value
-
-						for (int i = 0; i < 4; i++) {
-							char angleCharAt = request[3 + i];
-							if (angleCharAt != '_') {
-								STRING1 += String(angleCharAt);
-							}
-						}
+					} else if (protocol == PROTOCOL_ROTATION_ID) { /* Wheel Rotation */
+						byte angle = buffer[1];
 
 						Serial.print(F("[RadioNetworking] [Server] [Protocol: Rotation] New value: angle="));
-						Serial.println(STRING1.substring(1));
+						Serial.println(angle);
 
-						engine->turn((word) STRING1.substring(1).toInt());
-					} else if (protocol == 'a') { // ACTION
-						STRING1 = 0x01; // direction value
-						STRING2 = 0x01; // speed value
-
-						STRING1 += String(request[3]);
-
-						for (int i = 0; i < 4; i++) {
-							char speedCharAt = request[6 + i];
-							if (speedCharAt != '_') {
-								STRING2 += String(speedCharAt);
-							}
-						}
+						engine->turn(angle);
+					} else if (protocol == PROTOCOL_MOVING_ID) { /* Moving */
+						byte direction = buffer[1];
+						byte speed = buffer[2];
 
 						Serial.print(F("[RadioNetworking] [Server] [Protocol: Action] New value: direction="));
-						Serial.print(STRING1.substring(1) == "0" ? "FORWARD" : "BACKWARD");
+						Serial.print(direction == 0 ? "FORWARD" : "BACKWARD");
 						Serial.print(F(", speed="));
-						Serial.println(STRING2.substring(1));
+						Serial.println(speed);
 
-						engine->move(STRING1.substring(1) == "0" ? 0 : 1, (byte) STRING2.substring(1).toInt());
+						engine->move(direction == 0 ? 0 : 1, speed);
 					} else { // UNKNOWN
 						success = false;
 						Serial.print(F("[RadioNetworking] [Server] [Protocol: Unknown] Unknown protocol identifier: "));
@@ -381,7 +357,7 @@ void loop() {
 		Serial.println(F("[Arduino] [Thread] First loop called!"));
 
 		if (SERIAL_CLI_ENABLED) {
-			Serial.println(F("[Arduino] [Debug] Command interface available!"));
+			Serial.println(F("[Arduino][Debug] Command interface available!"));
 		}
 
 		environment->updateMotion();
