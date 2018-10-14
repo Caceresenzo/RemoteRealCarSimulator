@@ -7,7 +7,7 @@
 
 #define SERIAL_CLI_ENABLED true
 
-#define GYRO_DEBUG false
+#define GYRO_DEBUG true
 
 SoftwareSerial ss(5, 6);
 RH_RF95 rf95(ss);
@@ -50,11 +50,11 @@ void setup() {
 	Serial.println(F("[RadioNetworking] [Client] initializing LoRas RH_RF95 radio..."));
 	radioWorking = rf95.init();
 	if (radioWorking) {
-		Serial.print(F("[RadioNetworking] [Client] READY"));
+		Serial.println(F("[RadioNetworking] [Client] READY"));
 
 		rf95.setFrequency(434.0);
 	} else {
-		Serial.print(F("[RadioNetworking] [Client] FAILED"));
+		Serial.println(F("[RadioNetworking] [Client] FAILED"));
 	}
 }
 
@@ -72,27 +72,40 @@ void loop() {
 		loopMessage = true;
 	}
 
+	//updateGyro();
+
+	//  sendProtocol('c', 0, 0);
 	listenSerialInterface();
 }
 byte targetSpeed = 255;
 void listenSerialInterface() {
+	byte updater = 0;
+	String line = "";
+
 	while (true) {
 		if (Serial.available() != 0) {
+			while (Serial.available() != 0) {
+				char character = Serial.read();
+
+				Serial.println(character);
+
+				if (character == ';' || character == 0) {
+					break;
+				}
+
+				line = line + character;
+			}
+
 			break;
 		}
-	}
 
-	String line = "";
-	while (Serial.available() != 0) {
-		char character = Serial.read();
-
-		Serial.println(character);
-
-		if (character == ';' || character == 0) {
+		if (updater++ == 255) {
+			line = "downright"; // camera
+			updater = 0;
 			break;
 		}
 
-		line = line + character;
+		delay(11);
 	}
 
 	Serial.println(line);
@@ -113,20 +126,25 @@ void listenSerialInterface() {
 	}
 
 	if (line == "up") {
-		sendProtocol('a', '1', targetSpeed);
+		sendProtocol('a', 1, targetSpeed);
 	} else if (line == "down") {
-		sendProtocol('a', '0', targetSpeed);
+		sendProtocol('a', 0, targetSpeed);
 	} else if (line == "left") {
-		sendProtocol('r', 50, 0);
+		sendProtocol('r', 120, 0);
 	} else if (line == "right") {
-		sendProtocol('r', 90, 0);
+		sendProtocol('r', 60, 0);
 	} else if (line == "center") {
-		sendProtocol('a', '1', 0);
+		sendProtocol('a', 1, 0);
+	} else if (line[0] == 'r' && line[1] == 'o' && line[2] == 't' && line[3] == 'a') { /* Rotation */
+		byte rotationValue = line.remove(0, 7).toInt();
+		sendProtocol('r', rotationValue, 0);
 	}
 
 	/* Other */
 	else if (line == "downright") {
 		sendProtocol('c', 0, 0);
+	} else if (line == "upright") {
+		sendProtocol('r', 90, 0);
 	}
 
 	/* Unkown */
@@ -138,86 +156,89 @@ void listenSerialInterface() {
 
 void sendProtocol(char protocol, byte value1, byte value2) {
 	if (protocol == 'c') {
-		uint8_t data[] = "c:x____,y____*******";
+		uint8_t data[3];
 
 		updateGyro();
 
-		String xString = String(x);
-		String yString = String(y);
-
-		for (byte i = 0; i < min(4, xString.length()); i++) {
-			data[3 + i] = (char) xString[i];
-		}
-		for (byte i = 0; i < min(4, yString.length()); i++) {
-			data[9 + i] = (char) yString[i];
-		}
+		data[0] = 1;
+		data[1] = x;
+		data[2] = y;
 
 		Serial.print("[RadioNetworking] [Client] Camera protocol with data: x=");
-		Serial.print(xString);
+		Serial.print(x);
 		Serial.print(", y=");
-		Serial.println(yString);
+		Serial.println(y);
 
-		sendRawData(data);
+		//sendRawData(data);
+
+		Serial.print("[RadioNetworking] [Client] Sending: ");
+		Serial.println((char*) data);
+
+		rf95.send(data, sizeof(data));
+		rf95.waitPacketSent();
 	} else if (protocol == 'r') {
-		uint8_t data[] = "r:a____*************"; //r,angle
+		uint8_t data[2];
 
-		String angleString = String(value1);
-
-		for (byte i = 0; i < min(4, angleString.length()); i++) {
-			data[3 + i] = (char) angleString[i];
-			//data[3 + i] = (char) line[2 + i];
-		}
+		data[0] = 2;
+		data[1] = value1;
 
 		Serial.print("[RadioNetworking] [Client] Rotation protocol with data: angle=");
-		Serial.println(angleString);
+		Serial.println(value1);
 
-		sendRawData(data);
+		//sendRawData(data);
+
+		Serial.print("[RadioNetworking] [Client] Sending: ");
+		Serial.println((char*) data);
+
+		rf95.send(data, sizeof(data));
+		rf95.waitPacketSent();
 	} else if (protocol == 'a') {
-		uint8_t data[] = "a:d_,s____**********"; //a,1,255
+		uint8_t data[3];
 
-		//String speedString = String(z);
-
-		String speedString = String(value2);
-
-		// data[3] = line[2];
-		data[3] = value1;
-
-		for (byte i = 0; i < min(4, speedString.length()); i++) {
-			data[6 + i] = (char) speedString[i];
-			// data[6 + i] = (char) line[4 + i];
-		}
+		data[0] = 3;
+		data[1] = value1; /* Direction */
+		data[2] = value2; /* Speed */
 
 		Serial.print("[RadioNetworking] [Client] Action protocol with data: direction=");
-		Serial.print(value1);
+		Serial.print((char) value1);
 		Serial.print(", speed=");
-		Serial.println(speedString);
+		Serial.println(value2);
 
-		sendRawData(data);
+		//sendRawData(data);
+
+		Serial.print("[RadioNetworking] [Client] Sending: ");
+		Serial.println((char*) data);
+
+		rf95.send(data, sizeof(data));
+		rf95.waitPacketSent();
 	} else {
-		uint8_t data[] = "************";
+		uint8_t data[1];
 
 		data[0] = protocol;
 
 		Serial.println("[RadioNetworking] [Client] Unknown protocol");
 
-		sendRawData(data);
+		//sendRawData(data);
 	}
 }
 
-void sendRawData(uint8_t rawData[]) {
-	if (radioWorking) {
-		Serial.print("[RadioNetworking] [Client] Sending: ");
-		Serial.println((char*) rawData);
+/*
+ void sendRawData(uint8_t rawData[]) {
+ if (radioWorking) {
+ Serial.print("[RadioNetworking] [Client] Sending: ");
+ Serial.println((char*) rawData);
 
-		rf95.send(rawData, sizeof(rawData));
-		rf95.waitPacketSent();
+ rf95.send(rawData, sizeof(rawData));
+ rf95.waitPacketSent();
 
-		waitDataResponse();
-	} else {
-		Serial.print(F("[RadioNetworking] [Client] Can't send raw data: "));
-		Serial.println((char*) rawData);
-	}
-}
+ //waitDataResponse();
+ }
+ else {
+ Serial.print(F("[RadioNetworking] [Client] Can't send raw data: "));
+ Serial.println((char*) rawData);
+ }
+ }
+ */
 
 void waitDataResponse() {
 	uint8_t buffer[RH_RF95_MAX_MESSAGE_LEN];
@@ -244,6 +265,18 @@ void updateGyro() {
 
 	if (GYRO_DEBUG) {
 		Serial.print("a/g:\t");
+		Serial.print(ax);
+		Serial.print("\t");
+		Serial.print(ay);
+		Serial.print("\t");
+		Serial.print(az);
+		Serial.print("\t");
+		Serial.print(gx);
+		Serial.print("\t");
+		Serial.print(gy);
+		Serial.print("\t");
+		Serial.print(gz);
+		Serial.print("\t");
 		Serial.print(x);
 		Serial.print("\t");
 		Serial.print(y);
