@@ -107,7 +107,7 @@ class Pedal(AxedBridge):
         if self.axis not in [ AXIS_PEDAL_CLUTCH, AXIS_PEDAL_BRAKE, AXIS_PEDAL_ACCELERATE ]:
             return 0
 
-        return joystick.get_axis(self.axis)
+        return super().get_axis_value()
 
     def format_request(self, value):
         if self.axis == AXIS_PEDAL_CLUTCH:
@@ -153,10 +153,11 @@ def loop():
     for bridge in bridges:
         bridge.task()
 
-#
-#
-#
-#
+"""
+
+Bellow are debug graphical code
+
+"""
 
 
 class TextPrint:
