@@ -4,29 +4,28 @@
 #include <stdint.h>
 #include <SoftwareSerial.h>
 #include <WString.h>
+#include <Servo.h>
+
+#include "Wire.h"
+#include "I2Cdev.h"
+//#include "MPU6050.h"
 
 #define SERIAL_CLI_ENABLED true
 
-#define GYRO_DEBUG true
+//#define GYRO_DEBUG true
 
-SoftwareSerial ss(5, 6);
+SoftwareSerial ss(2, 3);
 RH_RF95 rf95(ss);
 
 int led = 13;
 
-#include "Wire.h"
-#include "I2Cdev.h"
-#include "MPU6050.h"
+//MPU6050 accelgyro;
 
-MPU6050 accelgyro;
+/*int16_t ax, ay, az;
+ int16_t gx, gy, gz;
+ int16_t x, y, z;*/
 
-int16_t ax, ay, az;
-int16_t gx, gy, gz;
-int16_t x, y, z;
-
-bool blinkState = false;
-
-bool gyroWorking = false, radioWorking = false;
+bool /* gyroWorking = false,*/radioWorking = false;
 
 void setup() {
 	/* Arduino Init */
@@ -39,11 +38,11 @@ void setup() {
 	/* I2C */
 	Serial.println(F("[Environment] [I2C] Initializing devices..."));
 
-	/* Gyro */
-	Serial.print(F("[Environment] [MPU6050] Testing device connections... "));
-	accelgyro.initialize();
-	gyroWorking = accelgyro.testConnection();
-	Serial.println(gyroWorking ? "READY" : "FAILED");
+	/* Gyro
+	 Serial.print(F("[Environment] [MPU6050] Testing device connections... "));
+	 accelgyro.initialize();
+	 gyroWorking = accelgyro.testConnection();
+	 Serial.println(gyroWorking ? "READY" : "FAILED");*/
 
 	/* Network */
 	Serial.println(F("[RadioNetworking] initializing..."));
@@ -53,12 +52,15 @@ void setup() {
 		Serial.println(F("[RadioNetworking] [Client] READY"));
 
 		rf95.setFrequency(434.0);
+		//rf95.setTxPower(23, true);
 	} else {
 		Serial.println(F("[RadioNetworking] [Client] FAILED"));
 	}
 }
 
+bool blinkState = false;
 bool loopMessage = false;
+word ledBlink = 0;
 void loop() {
 	if (!loopMessage) {
 		Serial.println(F("[Arduino] [Thread] First loop called!"));
@@ -67,156 +69,193 @@ void loop() {
 			Serial.println(F("[Arduino] [Debug] Command interface available!"));
 		}
 
-		updateGyro();
+		//updateGyro();
 
 		loopMessage = true;
 	}
+
+	blinkState = !blinkState;
+	digitalWrite(led, blinkState ? HIGH : LOW);
 
 	//updateGyro();
 
 	//  sendProtocol('c', 0, 0);
 	listenSerialInterface();
+
+	delay(20);
 }
 byte targetSpeed = 255;
 void listenSerialInterface() {
 	byte updater = 0;
-	String line = "";
 
-	while (true) {
-		if (Serial.available() != 0) {
-			while (Serial.available() != 0) {
-				char character = Serial.read();
+	/*while (true) { */
+	if (Serial.available() != 0) {
+		String line = "";
 
-				Serial.println(character);
+		while (Serial.available() != 0) {
+			char character = Serial.read();
 
-				if (character == ';' || character == 0) {
-					break;
-				}
+			Serial.println(character);
 
-				line = line + character;
+			if (character == ';' || character == 0) {
+				break;
 			}
 
-			break;
+			line = line + character;
 		}
 
-		if (updater++ == 255) {
-			line = "downright"; // camera
-			updater = 0;
-			break;
-		}
+		//break;
 
-		delay(11);
-	}
-
-	Serial.println(line);
-
-	byte oldSpeed = targetSpeed;
-	if (line == "a") {
-		targetSpeed = 150;
-	} else if (line == "b") {
-		targetSpeed = 200;
-	} else if (line == "c") {
-		targetSpeed = 255;
-	}
-
-	if (oldSpeed != targetSpeed) {
-		Serial.print("[RadioNetworking] [Client] [Car] New speed saved speed is: ");
-		Serial.println(targetSpeed);
-		return;
-	}
-
-	if (line == "up") {
-		sendProtocol('a', 1, targetSpeed);
-	} else if (line == "down") {
-		sendProtocol('a', 0, targetSpeed);
-	} else if (line == "left") {
-		sendProtocol('r', 120, 0);
-	} else if (line == "right") {
-		sendProtocol('r', 60, 0);
-	} else if (line == "center") {
-		sendProtocol('a', 1, 0);
-	} else if (line[0] == 'r' && line[1] == 'o' && line[2] == 't' && line[3] == 'a') { /* Rotation */
-		byte rotationValue = line.remove(0, 7).toInt();
-		sendProtocol('r', rotationValue, 0);
-	}
-
-	/* Other */
-	else if (line == "downright") {
-		sendProtocol('c', 0, 0);
-	} else if (line == "upright") {
-		sendProtocol('r', 90, 0);
-	}
-
-	/* Unkown */
-	else {
-		Serial.print("[RadioNetworking] [Client] Unknown command: ");
 		Serial.println(line);
+
+		byte oldSpeed = targetSpeed;
+		if (line == "a") {
+			targetSpeed = 150;
+		} else if (line == "b") {
+			targetSpeed = 200;
+		} else if (line == "c") {
+			targetSpeed = 255;
+		}
+
+		if (oldSpeed != targetSpeed) {
+			Serial.print("[RadioNetworking] [Client] [Car] New speed saved speed is: ");
+			Serial.println(targetSpeed);
+			return;
+		}
+
+		if (line == "up") {
+			sendProtocol('a', 1, targetSpeed);
+		} else if (line == "down") {
+			sendProtocol('a', 0, targetSpeed);
+		} else if (line == "left") {
+			sendProtocol('r', 120, 0);
+		} else if (line == "right") {
+			sendProtocol('r', 60, 0);
+		} else if (line == "center") {
+			sendProtocol('a', 1, 0);
+		} else if (line[0] == 'r' && line[1] == 'o' && line[2] == 't' && line[3] == 'a') { /* Rotation */
+
+			Serial.print(F("Rotation: raw=\""));
+			Serial.print(line);
+			Serial.print(F("\" -- removed: \""));
+			line.remove(0, 8);
+			Serial.print(line);
+			Serial.print(F("\" value: "));
+			byte rotationValue = 180 - line.toInt();
+			Serial.println(rotationValue);
+
+			sendProtocol('r', rotationValue, 0);
+		}
+
+		/* Other */
+		else if (line == "downright") {
+			sendProtocol('c', 0, 0);
+		} else if (line == "upright") {
+			sendProtocol('r', 90, 0);
+		}
+
+		/* Unkown */
+		else {
+			Serial.print(F("[RadioNetworking] [Client] Unknown command: "));
+			Serial.println(line);
+		}
 	}
+
+	/*if (updater++ == 255) {
+	 line = "downright"; // camera
+	 updater = 0;
+	 break;
+	 }
+
+	 delay(11);
+	 }*/
+
 }
 
 void sendProtocol(char protocol, byte value1, byte value2) {
 	if (protocol == 'c') {
 		uint8_t data[3];
 
-		updateGyro();
+		//updateGyro();
+		/*
+		 data[0] = 1;
+		 data[1] = x;
+		 data[2] = y;
 
-		data[0] = 1;
-		data[1] = x;
-		data[2] = y;
+		 Serial.print("[RadioNetworking] [Client] Camera protocol with data: x=");
+		 Serial.print(x);
+		 Serial.print(", y=");
+		 Serial.println(y);
 
-		Serial.print("[RadioNetworking] [Client] Camera protocol with data: x=");
-		Serial.print(x);
-		Serial.print(", y=");
-		Serial.println(y);
+		 //sendRawData(data);
 
-		//sendRawData(data);
+		 Serial.print("[RadioNetworking] [Client] Sending: ");
 
-		Serial.print("[RadioNetworking] [Client] Sending: ");
-		Serial.println((char*) data);
+		 for (byte i = 0; i < 3; i++) {
+		 Serial.print((byte) i);
+		 Serial.print(F("="));
+		 Serial.print((byte) data[i]);
+		 Serial.print(F(" "));
+		 }
+		 Serial.println();
 
-		rf95.send(data, sizeof(data));
-		rf95.waitPacketSent();
+		 rf95.send(data, sizeof(data));
+		 //rf95.waitPacketSent(); */
 	} else if (protocol == 'r') {
 		uint8_t data[2];
 
-		data[0] = 2;
+		data[0] = 20;
 		data[1] = value1;
 
-		Serial.print("[RadioNetworking] [Client] Rotation protocol with data: angle=");
+		Serial.print(F("[RadioNetworking] [Client] Rotation protocol with data: angle="));
 		Serial.println(value1);
 
 		//sendRawData(data);
 
 		Serial.print("[RadioNetworking] [Client] Sending: ");
-		Serial.println((char*) data);
+
+		for (byte i = 0; i < 2; i++) {
+			Serial.print((byte) i);
+			Serial.print(F("="));
+			Serial.print((byte) data[i]);
+			Serial.print(F(" "));
+		}
+		Serial.println();
 
 		rf95.send(data, sizeof(data));
-		rf95.waitPacketSent();
+		//rf95.waitPacketSent();
 	} else if (protocol == 'a') {
 		uint8_t data[3];
 
-		data[0] = 3;
+		data[0] = 30;
 		data[1] = value1; /* Direction */
 		data[2] = value2; /* Speed */
 
-		Serial.print("[RadioNetworking] [Client] Action protocol with data: direction=");
+		Serial.print(F("[RadioNetworking] [Client] Action protocol with data: direction="));
 		Serial.print((char) value1);
 		Serial.print(", speed=");
 		Serial.println(value2);
 
 		//sendRawData(data);
 
-		Serial.print("[RadioNetworking] [Client] Sending: ");
-		Serial.println((char*) data);
+		Serial.print(F("[RadioNetworking] [Client] Sending: "));
+
+		for (byte i = 0; i < 3; i++) {
+			Serial.print((byte) i);
+			Serial.print(F("="));
+			Serial.print((byte) data[i]);
+			Serial.print(F(" "));
+		}
+		Serial.println();
 
 		rf95.send(data, sizeof(data));
-		rf95.waitPacketSent();
+		//rf95.waitPacketSent();
 	} else {
 		uint8_t data[1];
 
 		data[0] = protocol;
 
-		Serial.println("[RadioNetworking] [Client] Unknown protocol");
+		Serial.println(F("[RadioNetworking] [Client] Unknown protocol"));
 
 		//sendRawData(data);
 	}
@@ -256,31 +295,31 @@ void waitDataResponse() {
 	}
 }
 
-void updateGyro() {
-	if (!gyroWorking) {
-		return;
-	}
+/*void updateGyro() {
+ if (!gyroWorking) {
+ return;
+ }
 
-	accelgyro.getMotion9(&ax, &ay, &az, &gx, &gy, &gz, &x, &y, &z);
+ accelgyro.getMotion9(&ax, &ay, &az, &gx, &gy, &gz, &x, &y, &z);
 
-	if (GYRO_DEBUG) {
-		Serial.print("a/g:\t");
-		Serial.print(ax);
-		Serial.print("\t");
-		Serial.print(ay);
-		Serial.print("\t");
-		Serial.print(az);
-		Serial.print("\t");
-		Serial.print(gx);
-		Serial.print("\t");
-		Serial.print(gy);
-		Serial.print("\t");
-		Serial.print(gz);
-		Serial.print("\t");
-		Serial.print(x);
-		Serial.print("\t");
-		Serial.print(y);
-		Serial.print("\t");
-		Serial.println(z);
-	}
-}
+ if (GYRO_DEBUG) {
+ Serial.print("a/g:\t");
+ Serial.print(ax);
+ Serial.print("\t");
+ Serial.print(ay);
+ Serial.print("\t");
+ Serial.print(az);
+ Serial.print("\t");
+ Serial.print(gx);
+ Serial.print("\t");
+ Serial.print(gy);
+ Serial.print("\t");
+ Serial.print(gz);
+ Serial.print("\t");
+ Serial.print(x);
+ Serial.print("\t");
+ Serial.print(y);
+ Serial.print("\t");
+ Serial.println(z);
+ }
+ }*/
