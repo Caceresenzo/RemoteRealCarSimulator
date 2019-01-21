@@ -2,6 +2,7 @@ import os
 import pygame
 import platform
 import serial
+import time
 
 BLACK = (0, 0, 0)
 WHITE = (255, 255, 255)
@@ -26,6 +27,9 @@ else:
 
 print("Joystick-Bridge v1")
 print("Running on: " + str(OPERATING_SYSTEM))
+
+pygame.init()
+pygame.joystick.init()
 
 JOYSTICK = pygame.joystick.Joystick(JOYSTICK_ID)
 JOYSTICK.init()
@@ -59,33 +63,30 @@ class Communicator:
         self.serial = serial.Serial(serial_path, baud)
 
     def send(self, data):
-        self.serial.write(data)
+        print("Sending: " + str(data));
+        self.serial.write(str(data).encode("utf-8"))
+        self.serial.flush()
+        time.sleep(0.2)
+
+    def read(self):
+        while self.serial.inWaiting():
+            print(self.serial.readline())
 
 
 class Bridge:
 
     def __init__(self, communicator):
         self.communicator = communicator
+        self.old_value = -1
 
     def task(self):
         pass
 
+    def send_value(self, new_value):
+        request = self.format_request(new_value)
 
-class AxedBridge(Bridge):
-
-    def __init__(self, communicator, axis):
-        Bridge.__init__(self, communicator)
-        self.axis = axis
-        self.old_value = -1
-
-    def get_axis_value(self):
-        return joystick.get_axis(self.axis)
-
-    def send_rotation(self, rotation):
-        request = self.format_request(rotation)
-
-        if request != None and (self.old_value == -1 or self.old_value != rotation):
-            self.old_value = rotation
+        if request != None and self.old_value != new_value:
+            self.old_value = new_value
 
             self.communicator.send(request)
 
@@ -93,7 +94,48 @@ class AxedBridge(Bridge):
         return str(value)
 
 
-class Pedal(AxedBridge):
+class AxedBridge(Bridge):
+
+    def __init__(self, communicator, axis):
+        Bridge.__init__(self, communicator)
+        self.axis = axis
+
+    def get_axis_value(self):
+        return joystick.get_axis(self.axis)
+
+class Pedal(Bridge):
+
+    def __init__(self, communicator, button):
+        Bridge.__init__(self, communicator)
+        self.button = button
+
+    def get_button_value(self):
+        return joystick.get_button(self.button);
+
+class ForwardPedal(Pedal):
+
+    def __init__(self, communicator, button):
+        Pedal.__init__(self, communicator, button)
+
+    def task(self):
+        if (self.get_button_value()):
+            self.send_value("up")
+        else:
+            self.send_value("center")
+        
+
+class BackwardPedal(Pedal):
+
+    def __init__(self, communicator, button):
+        Pedal.__init__(self, communicator, button)
+
+    def task(self):
+        if (self.get_button_value()):
+            self.send_value("down")
+        else:
+            self.send_value("center")
+
+"""class Pedal(AxedBridge):
 
     def __init__(self, communicator, axis):
         AxedBridge.__init__(self, communicator, axis)
@@ -120,7 +162,7 @@ class Pedal(AxedBridge):
             if value > 0.5:
                 return "up"
 
-        return None
+        return None"""
 
 
 class SteeringWheel(AxedBridge):
@@ -132,24 +174,30 @@ class SteeringWheel(AxedBridge):
         rotation = self.get_axis_value()
         rotation += 1
         rotation *= 90
-        rotation = int(round(rotation, 0) / 10)
+        rotation = int(round(rotation, 0) / 10) * 10
+        self.send_value(rotation)
 
     def format_request(self, value):
         return "rotation" + str(value)
 
 
-communicator = Communicator(Utils.input_number("com? "), Utils.input_number("baud (0= 9600)? "))
+communicator = Communicator(8, 115200)
 
 steeringWheel = SteeringWheel(communicator, AXIS_STEETING_WHEEL)
 
-clutchPedal = Pedal(communicator, AXIS_PEDAL_CLUTCH)
+"""clutchPedal = Pedal(communicator, AXIS_PEDAL_CLUTCH)
 brakePedal = Pedal(communicator, AXIS_PEDAL_BRAKE)
-acceleratePedal = Pedal(communicator, AXIS_PEDAL_ACCELERATE)
+acceleratePedal = Pedal(communicator, AXIS_PEDAL_ACCELERATE)"""
+forwardPedal = ForwardPedal(communicator, 6)
+backwardPedal = BackwardPedal(communicator, 7)
 
-bridges = [ steeringWheel, clutchPedal, brakePedal, acceleratePedal ]
+
+bridges = [ steeringWheel, forwardPedal, backwardPedal ]
+#bridges = [ steeringWheel ]
 
 
 def loop():
+    communicator.read()
     for bridge in bridges:
         bridge.task()
 
@@ -164,7 +212,7 @@ class TextPrint:
 
     def __init__(self):
         self.reset()
-        self.font = pygame.font.Font(None, 20)
+        self.font = pygame.font.Font("freesansbold.ttf", 20)
 
     def print(self, screen, textString):
         textBitmap = self.font.render(textString, True, BLACK)
@@ -183,8 +231,6 @@ class TextPrint:
         self.x -= 10
 
 
-pygame.init()
-
 # Set the width and height of the screen [width,height]
 size = [500, 700]
 screen = pygame.display.set_mode(size)
@@ -197,9 +243,6 @@ done = False
 # Used to manage how fast the screen updates
 clock = pygame.time.Clock()
 
-# Initialize the joysticks
-pygame.joystick.init()
-
 # Get ready to print
 textPrint = TextPrint()
 
@@ -210,9 +253,9 @@ while done == False:
 
         # Possible joystick actions: JOYAXISMOTION JOYBALLMOTION JOYBUTTONDOWN JOYBUTTONUP JOYHATMOTION
         if event.type == pygame.JOYBUTTONDOWN:
-            print("Joystick button pressed.")
+            pass #print("Joystick button pressed.")
         if event.type == pygame.JOYBUTTONUP:
-            print("Joystick button released.")
+            pass #print("Joystick button released.")
 
     screen.fill(WHITE)
     textPrint.reset()
