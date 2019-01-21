@@ -1,5 +1,4 @@
 #include <Arduino.h>
-#include <MPU6050.h>
 #include <RH_RF95.h>
 #include <stdint.h>
 #include <Servo.h>
@@ -26,16 +25,9 @@
 
 #define LED_PIN 13
 
-#define PROTOCOL_CAMERA_ID  1
-#define PROTOCOL_ROTATION_ID  2
-#define PROTOCOL_MOVING_ID  3
-
-int16_t ax, ay, az;
-int16_t gx, gy, gz;
-int16_t mx, my, mz;
-
-String STRING1 = "********************";
-String STRING2 = "********************";
+#define PROTOCOL_CAMERA_ID  10
+#define PROTOCOL_ROTATION_ID  20
+#define PROTOCOL_MOVING_ID  30
 
 class Engine {
 	private:
@@ -109,102 +101,14 @@ class CameraServo {
 			Serial.println(y);
 		}
 		void moveFromGyro() {
-			word xPosition = this->processRotationValue((word) abs(mx), 20, 120);
-			word yPosition = this->processRotationValue((word) abs(my), 80, 120);
-			this->move(xPosition, yPosition);
+			//word xPosition = this->processRotationValue((word) abs(mx), 20, 120);
+			//word yPosition = this->processRotationValue((word) abs(my), 80, 120);
+			//this->move(xPosition, yPosition);
 		}
 		int processRotationValue(word value, word minAngle, word maxAngle) {
 			value = 90 - ((word) (value / 20)) * 20;
 			return constrain(value, minAngle, maxAngle);
 		}
-};
-
-class Environment {
-	private:
-		MPU6050 accelGyro; //
-		bool accelGyroWorking = false;
-	public:
-		Environment() {
-		}
-		void initialize() {
-			Serial.println("[Environment] initializing...");
-
-			Serial.println("[Environment] [I2C] Initializing devices...");
-			Serial.print("[Environment] [MPU6050] Testing device connections... ");
-			this->accelGyro.initialize();
-			accelGyroWorking = this->accelGyro.testConnection();
-			Serial.println(this->accelGyro.testConnection() ? "READY" : "FAILED");
-
-			Serial.println("[Environment] initialized.");
-		}
-		void updateMotion() {
-			if (!this->accelGyroWorking) {
-				return;
-			}
-			this->accelGyro.getMotion9(&ax, &ay, &az, &gx, &gy, &gz, &mx, &my, &mz);
-		}
-		void debugGyro() {
-			if (!this->accelGyroWorking) {
-				Serial.println("[Environment] [MPU6050] [Debug] Not connected.");
-				return;
-			}
-			Serial.print("[Environment] [MPU6050] [Debug] a/g/m:\t");
-			Serial.print(ax);
-			Serial.print("\t");
-			Serial.print(ay);
-			Serial.print("\t");
-			Serial.print(az);
-			Serial.print("\t");
-			Serial.print(gx);
-			Serial.print("\t");
-			Serial.print(gy);
-			Serial.print("\t");
-			Serial.print(gz);
-			Serial.print("\t");
-			Serial.print(mx);
-			Serial.print("\t");
-			Serial.print(my);
-			Serial.print("\t");
-			Serial.println(mz);
-		}
-};
-
-enum RadioProtocol {
-	CAMERA, // [REQUEST]
-	/*
-	 String:
-	 c:x____,y____******
-	 3     9
-	 Explain:
-	 x: [int 0-360] Camera X value,
-	 y: [int 0-360] Camera Y value,
-	 */
-	ROTATION, // [REQUEST]
-	/*
-	 String:
-	 r:a____************
-	 3
-	 Explain:
-	 a: [int 0-360] New motor angle
-	 */
-	ACTION, // [REQUEST]
-	/*
-	 String:
-	 a:d_,s____*********
-	 3  6
-	 Explain:
-	 f: [int 0-1] Forward or backward
-	 s: [int 0-?] Speed
-	 */
-	STATUS, // [RESPONSE]
-	/*
-	 String:
-	 a:s_***************
-	 3
-	 Explain:
-	 f: [int 0-1] Fail(0) or success(1)
-	 */
-	OTHER
 };
 
 class RadioNetworking {
@@ -217,9 +121,7 @@ class RadioNetworking {
 				radioSoftwareSerial(netReadPin, netWritePin), rf95(radioSoftwareSerial) {
 		}
 		void initialize() {
-			Serial.println("[RadioNetworking] initializing...");
-			Serial.println("[RadioNetworking] [Server] initializing LoRas RH_RF95 radio...");
-			Serial.print("[RadioNetworking] [Server] initializing ");
+			Serial.println(F("Init LoRas RH_RF95 radio..."));
 			int retry = 0;
 			bool success = false;
 			while (!success) {
@@ -228,58 +130,41 @@ class RadioNetworking {
 				if (retry > NETWORKING_RADIO_MAX_RETRY || success) {
 					break;
 				}
-				Serial.print("FAILED (");
+				Serial.print(F("FAILED ("));
 				Serial.print(retry);
-				Serial.print("/");
+				Serial.print(F("/"));
 				Serial.print(NETWORKING_RADIO_MAX_RETRY);
-				Serial.print("), ");
+				Serial.print(F("), "));
 				delay(100);
 			}
 
 			this->radioWorking = success;
 			if (success) {
-				Serial.println("READY");
+				Serial.println(F("OK"));
 			} else {
-				Serial.println("GIVING UP");
+				Serial.println(F("GIVING UP"));
 			}
-			Serial.println("[RadioNetworking] initialized.");
 		}
 		void startServer(float frequency) {
 			this->rf95.setFrequency(frequency);
-			Serial.println("[RadioNetworking] [Server] Listening...");
+			Serial.println(F("Listening..."));
 		}
 		void handle(Engine* engine, CameraServo* cameraServo) {
-			uint8_t buffer[RH_RF95_MAX_MESSAGE_LEN];
-			uint8_t length = sizeof(buffer);
-
-			//			Serial.print("[Arduino] [Server] Available: ");
-			//			Serial.println(rf95.available());
-
 			if (rf95.available()) {
-				if (rf95.recv(buffer, &length)) {
-					Serial.print("[RadioNetworking] [Server] Received: ");
-					Serial.println((char*) buffer);
+				uint8_t buffer[RH_RF95_MAX_MESSAGE_LEN];
+				uint8_t length = sizeof(buffer);
 
-					bool success = true;
+				if (rf95.recv(buffer, &length)) {
+					Serial.print(F("Received: "));
+					Serial.println((char*) buffer);
 
 					byte protocol = buffer[0];
 					byte* request = (byte*) buffer;
 
-					if (protocol == PROTOCOL_CAMERA_ID) { /* Camera Update */
-						byte x = buffer[1], y = buffer[2];
-
-						Serial.print(F("[RadioNetworking] [Server] [Protocol: Camera] New value: x="));
-						Serial.print(x);
-						Serial.print(F(", y="));
-						Serial.println(y);
-
-						int xPosition = cameraServo->processRotationValue(x, 20, 120);
-						int yPosition = cameraServo->processRotationValue(y, 80, 120);
-						cameraServo->move(xPosition, yPosition);
-					} else if (protocol == PROTOCOL_ROTATION_ID) { /* Wheel Rotation */
+					if (protocol == PROTOCOL_ROTATION_ID) { /* Wheel Rotation */
 						byte angle = buffer[1];
 
-						Serial.print(F("[RadioNetworking] [Server] [Protocol: Rotation] New value: angle="));
+						Serial.print(F("Angle="));
 						Serial.println(angle);
 
 						engine->turn(angle);
@@ -287,26 +172,25 @@ class RadioNetworking {
 						byte direction = buffer[1];
 						byte speed = buffer[2];
 
-						Serial.print(F("[RadioNetworking] [Server] [Protocol: Action] New value: direction="));
-						Serial.print(direction == 0 ? "FORWARD" : "BACKWARD");
+						Serial.print(F("Moving: dir="));
+						if (direction == 0) {
+							Serial.print(F("FORWARD"));
+						} else {
+							Serial.print(F("B"));
+						}
 						Serial.print(F(", speed="));
 						Serial.println(speed);
 
 						engine->move(direction == 0 ? 0 : 1, speed);
 					} else { // UNKNOWN
-						success = false;
-						Serial.print(F("[RadioNetworking] [Server] [Protocol: Unknown] Unknown protocol identifier: "));
+						Serial.print(F("Unknown: "));
 						Serial.println(protocol);
 					}
-					uint8_t reply[] = "s;_";
-					reply[2] = success ? '1' : '0';
-					this->rf95.send(reply, sizeof(reply));
-					this->rf95.waitPacketSent();
-					Serial.print(F("[RadioNetworking] [Server] [Protocol] Validating client with success: "));
-					Serial.println(success ? "TRUE" : "FALSE");
 				} else {
 					Serial.println(F("[RadioNetworking] [Server] Failed receiving packet"));
 				}
+
+				memset(buffer, 0, length);
 			}
 		}
 		void sendPacket(uint8_t* data, bool wait) {
@@ -326,7 +210,6 @@ class RadioNetworking {
 };
 
 Engine *engine;
-Environment *environment;
 CameraServo *cameraServo;
 RadioNetworking *radioNetworking;
 
@@ -337,13 +220,13 @@ void setup() {
 	Serial.println("[Arduino] woke up!");
 	Serial.println("[Arduino] [Setup] starting...");
 
+	pinMode(13, OUTPUT);
+
 	engine = new Engine();
-	environment = new Environment();
 	cameraServo = new CameraServo();
 	radioNetworking = new RadioNetworking(NETWORKING_RADIO_READ_PIN, NETWORKING_RADIO_WRITE_PIN);
 
 	engine->initialize(ENGINE_CONTROLLER_PIN, ENGINE_DIRECTION_PIN, ENGINE_TURN_PIN, ENGINE_DEFAULT_SPEED);
-	environment->initialize();
 	cameraServo->initialize(CAMERA_X_PIN, CAMERA_Y_PIN);
 	radioNetworking->initialize();
 	radioNetworking->startServer(NETWORKING_RADIO_FREQUENCY);
@@ -351,7 +234,8 @@ void setup() {
 	Serial.println("[Arduino] [Setup] finished.");
 }
 
-bool loopMessage = false;
+bool loopMessage = false, ledState = false;
+word ledBlink = 0;
 void loop() {
 	if (!loopMessage) {
 		Serial.println(F("[Arduino] [Thread] First loop called!"));
@@ -360,11 +244,21 @@ void loop() {
 			Serial.println(F("[Arduino][Debug] Command interface available!"));
 		}
 
-		environment->updateMotion();
-		environment->debugGyro();
-		cameraServo->moveFromGyro();
+		/*
+		 environment->updateMotion();
+		 environment->debugGyro();
+		 cameraServo->moveFromGyro();*/
 
 		loopMessage = true;
+	}
+
+	if (ledBlink++ > 800) {
+		ledState = !ledState;
+
+		digitalWrite(13, ledState ? HIGH : LOW);
+		//Serial.println(ledState);
+		ledBlink = 0;
+		Serial.print((byte) ledState);
 	}
 
 	radioNetworking->handle(engine, cameraServo);
@@ -381,41 +275,14 @@ void listenSerialInterface() {
 	if (Serial.available() != 0) {
 		String line = "";
 		while (Serial.available() != 0) {
-			char charectere = Serial.read();
-			if (charectere == ';') {
+			char character = Serial.read();
+			if (character == ';') {
 				break;
 			}
-			line = line + charectere;
+			line = line + character;
 		}
 
-		Serial.print(F("[Arduino][Debug] Testing with command: "));
+		Serial.print(F("Command: "));
 		Serial.println(line);
-
-		if (line == "a") {
-			//			engine->brake(true);
-		} else if (line == "b") {
-			//			engine->brake(false);
-		} else if (line == "c") {
-			//			engine->brakeDelay(ENGINE_BRAKE_DELAY);
-		} else if (line == "d") {
-			engine->move(1, 255);
-			//engine->move();
-		} else if (line == "e") {
-			engine->move(0, 255);
-		} else if (line == "f") {
-			// engine->setSpeed(50);
-		} else if (line == "g") {
-			// engine->setSpeed(250);
-		} else if (line == "h") {
-			// engine->setSpeed(800);
-		} else if (line == "i") {
-			engine->turn(70);
-		} else if (line == "j") {
-			engine->turn(120);
-		} else if (line == "k") {
-			analogWrite(ENGINE_CONTROLLER_PIN, 255);
-		} else if (line == "l") {
-			analogWrite(ENGINE_CONTROLLER_PIN, 20);
-		}
 	}
 }
