@@ -56,6 +56,9 @@ The goal was to take a classic RC car, but control it with a steering wheel and 
 - [branch:car](https://github.com/Caceresenzo/RemoteRealCarSimulator/tree/car)
 - [branch:head](https://github.com/Caceresenzo/RemoteRealCarSimulator/tree/head) (controller)
 
+##### Bridge
+- [branch:joystick-bridge](https://github.com/Caceresenzo/RemoteRealCarSimulator/tree/joystick-bridge) (communication with a steering wheel and Arduino)
+
 ---
 ### Authors
 
